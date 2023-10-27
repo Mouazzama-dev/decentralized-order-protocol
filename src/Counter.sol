@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
+// Initial commit
 pragma solidity ^0.8.13;
 
 contract Counter {
