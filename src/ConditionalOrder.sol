@@ -6,7 +6,13 @@ pragma solidity ^0.8.12;
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+
+
 contract ConditionalOrder is Pausable, Ownable {
+
+    AggregatorV3Interface internal priceFeed;
+
     enum OrderType {
         Buy,
         Sell
@@ -45,7 +51,10 @@ contract ConditionalOrder is Pausable, Ownable {
     // constructor() {
     //     owner = msg.sender;
     // }
-    constructor() Ownable(msg.sender) {}
+    constructor() Ownable(msg.sender) {
+            priceFeed = AggregatorV3Interface(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
+
+    }
 
     function createOrder(
         OrderType _orderType,
@@ -93,26 +102,35 @@ contract ConditionalOrder is Pausable, Ownable {
     );
 }
 
+function getLatestPrice() internal view returns (int) {
+    (,int price,,,) = priceFeed.latestRoundData();
+    return price;
+}
 
-    // function executeOrder(uint256 _orderId) public whenNotPaused {
-    //     Order storage order = orders[_orderId];
-    //     require(!order.executed, "Order already executed");
 
-    //     uint256 conditionsMet = 0;
-    //     for (uint i = 0; i < order.conditions.length; i++) {
-    //         if (checkCondition(order.conditions[i])) {
-    //             conditionsMet++;
-    //         }
-    //     }
 
-    //     if (
-    //         order.logic == Logic.AND && conditionsMet == order.conditions.length
-    //     ) {
-    //         performTrade(order);
-    //     } else if (order.logic == Logic.OR && conditionsMet > 0) {
-    //         performTrade(order);
-    //     }
-    // }
+    function executeOrder(uint256 _orderId) public whenNotPaused {
+        Order storage order = orders[_orderId];
+        require(!order.executed, "Order already executed");
+
+        uint256 conditionsMet = 0;
+        for (uint i = 0; i < order.conditions.length; i++) {
+            if (checkCondition(order.conditions[i])) {
+                conditionsMet++;
+            }
+        }
+
+        if (
+            order.logic == Logic.AND && conditionsMet == order.conditions.length
+        ) {
+            performTrade(order);
+                order.executed = true; // set order as executed
+        } else if (order.logic == Logic.OR && conditionsMet > 0) {
+            performTrade(order);
+                order.executed = true; // set order as executed
+
+        }
+    }
 
     // function checkCondition(
     //     Condition memory _condition
@@ -120,10 +138,33 @@ contract ConditionalOrder is Pausable, Ownable {
     //     if (_condition.conditionType == ConditionType.TimeBased) {
     //         return block.timestamp >= _condition.value;
     //     }
+    //     return false;
     //     // ... get data from some other resource like oracle
     // }
 
-    // function performTrade(Order storage order) internal {
-    //     // ... the main trading logic shoudl be written here 
-    // }
+    function checkCondition(Condition memory _condition) internal view returns (bool) {
+    if (_condition.conditionType == ConditionType.TimeBased) {
+        return block.timestamp >= _condition.value;
+    }
+    
+    if (_condition.conditionType == ConditionType.PriceBased) {
+        int latestPrice = getLatestPrice();
+        // Assuming value is the threshold price for the condition
+        return latestPrice >= int(_condition.value); // Needs careful consideration if using other than ETH/USD
+    }
+
+    // EventBased can be tricky as it depends on what event you are looking for.
+    // You might need another oracle or a method to set the event status on-chain.
+    if (_condition.conditionType == ConditionType.EventBased) {
+        // Placeholder, implement based on the specific event.
+        // return some_event_happened == _condition.value;
+    }
+
+    return false;
+}
+
+
+    function performTrade(Order storage order) internal {
+        // ... the main trading logic shoudl be written here 
+    }
 }

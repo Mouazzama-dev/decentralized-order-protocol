@@ -12,7 +12,7 @@ contract ConditionalOrderTest is Test {
         conditionalOrder = new ConditionalOrder();
     }
 
-    function test_createOrder() public {
+    function test_createOrderTimeBased() public {
         // Initializing conditions array with a specific size
         ConditionalOrder.Condition[] memory initialConditions = new ConditionalOrder.Condition[](1);
         
@@ -35,15 +35,7 @@ contract ConditionalOrderTest is Test {
         assertEq(orderId, 1);
 
            // Fetching the order
-    (
-        address user, 
-        ConditionalOrder.OrderType orderType, 
-        address asset, 
-        uint256 amount, 
-        ConditionalOrder.Condition[] memory fetchedConditions, 
-        ConditionalOrder.Logic logic, 
-        bool executed
-    ) = conditionalOrder.getOrder(orderId);
+        (address user, ConditionalOrder.OrderType orderType, address asset, uint256 amount, ConditionalOrder.Condition[] memory fetchedConditions, ConditionalOrder.Logic logic, bool executed) = conditionalOrder.getOrder(orderId);
 
       ConditionalOrder.Order memory order = ConditionalOrder.Order({
         user: user,
@@ -53,7 +45,7 @@ contract ConditionalOrderTest is Test {
         conditions: fetchedConditions,
         logic: logic,
         executed: executed
-    });
+        });
 
         // Asserting order details
         assertEq(order.user, address(this));
@@ -66,4 +58,44 @@ contract ConditionalOrderTest is Test {
         assertEq(uint(order.logic), uint(ConditionalOrder.Logic.AND));
         assertTrue(!order.executed);
     }
+
+    function test_executeOrderTimeBased() public {
+        // First, create an order with a TimeBased condition for 2 seconds in the future.
+        ConditionalOrder.Condition[] memory initialConditions = new ConditionalOrder.Condition[](1);
+
+        ConditionalOrder.Condition memory condition = ConditionalOrder.Condition({
+            conditionType: ConditionalOrder.ConditionType.TimeBased,
+            value: block.timestamp + 2 seconds
+        });
+
+        initialConditions[0] = condition;
+
+        uint256 orderId = conditionalOrder.createOrder(
+            ConditionalOrder.OrderType.Buy,
+            address(0),
+            100,
+            initialConditions,
+            ConditionalOrder.Logic.AND
+        );
+
+        assertEq(orderId, 1); // Ensure order creation was successful
+
+        // Using vm.wrap to manipulate the EVM time
+        vm.warp(block.timestamp + 2 seconds);
+
+
+        conditionalOrder.executeOrder(orderId);
+
+        (
+            , , , , ,
+            , 
+            bool executed
+        ) = conditionalOrder.getOrder(orderId);
+
+        // Asserting that the order has been executed
+        assertTrue(executed, "Order was not executed");
+}
+
+
+
 }
