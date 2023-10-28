@@ -4,13 +4,22 @@ pragma solidity ^0.8.12;
 
 // Import OpenZeppelin's Pausable and ownable contract
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/access/Ownable.sol"; 
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract ConditionalOrder is Pausable {
-
-    enum OrderType { Buy, Sell }
-    enum ConditionType { TimeBased, EventBased, PriceBased }
-    enum Logic { AND, OR }
+    enum OrderType {
+        Buy,
+        Sell
+    }
+    enum ConditionType {
+        TimeBased,
+        EventBased,
+        PriceBased
+    }
+    enum Logic {
+        AND,
+        OR
+    }
 
     struct Condition {
         ConditionType conditionType;
@@ -37,7 +46,7 @@ contract ConditionalOrder is Pausable {
         owner = msg.sender;
     }
 
-        function createOrder(
+    function createOrder(
         OrderType _orderType,
         address _asset,
         uint256 _amount,
@@ -45,7 +54,15 @@ contract ConditionalOrder is Pausable {
         Logic _logic
     ) public whenNotPaused returns (uint256) {
         orderCount++;
-        orders[orderCount] = Order(msg.sender, _orderType, _asset, _amount, _conditions, _logic, false);
+        orders[orderCount] = Order(
+            msg.sender,
+            _orderType,
+            _asset,
+            _amount,
+            _conditions,
+            _logic,
+            false
+        );
         emit OrderCreated(orderCount, msg.sender);
         return orderCount;
     }
@@ -61,11 +78,25 @@ contract ConditionalOrder is Pausable {
             }
         }
 
-        if (order.logic == Logic.AND && conditionsMet == order.conditions.length) {
+        if (
+            order.logic == Logic.AND && conditionsMet == order.conditions.length
+        ) {
             performTrade(order);
         } else if (order.logic == Logic.OR && conditionsMet > 0) {
             performTrade(order);
         }
     }
 
+    function checkCondition(
+        Condition memory _condition
+    ) internal view returns (bool) {
+        if (_condition.conditionType == ConditionType.TimeBased) {
+            return block.timestamp >= _condition.value;
+        }
+        // ... get data from some other resource like oracle
+    }
+
+    function performTrade(Order storage order) internal {
+        // ... the main trading logic shoudl be written here 
+    }
 }
