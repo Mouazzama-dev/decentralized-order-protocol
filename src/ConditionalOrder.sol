@@ -5,10 +5,12 @@ pragma solidity ^0.8.12;
 // Import required OpenZeppelin,Chainlink and MockChainlink contracts
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "./MockChainlinkAggregator.sol";
+
 // A contract to execute conditional orders based on various conditions
-contract ConditionalOrder is Pausable, Ownable {
+contract ConditionalOrder is Pausable, Ownable, ReentrancyGuard {
 
     // Interface for Chainlink price feeds
     AggregatorV3Interface internal priceFeed;
@@ -88,7 +90,7 @@ contract ConditionalOrder is Pausable, Ownable {
             newOrder.logic = _logic;
             newOrder.executed = false;
 
-            for (uint i = 0; i < _conditions.length; i++) {
+            for (uint256 i = 0; i < _conditions.length; i++) {
                 newOrder.conditions.push(_conditions[i]);
             }
 
@@ -135,12 +137,12 @@ contract ConditionalOrder is Pausable, Ownable {
         isUsingMock = false;
     }
 
-    function getLatestPrice() internal view returns (int) {
+    function getLatestPrice() internal view returns (int256) {
         if (isUsingMock) {
-            (, int price, , , ) = mockFeed.latestRoundData();
+            (, int256 price, , , ) = mockFeed.latestRoundData();
             return price;
         } else {
-            (, int price, , , ) = priceFeed.latestRoundData();
+            (, int256 price, , , ) = priceFeed.latestRoundData();
             return price;
         }
     }
@@ -151,12 +153,12 @@ contract ConditionalOrder is Pausable, Ownable {
     * @param _orderId ID of the order to execute
     */
 
-    function executeOrder(uint256 _orderId) public whenNotPaused {
+    function executeOrder(uint256 _orderId) public whenNotPaused nonReentrant() {
         Order storage order = orders[_orderId];
         require(!order.executed, "Order already executed");
 
         uint256 conditionsMet = 0;
-        for (uint i = 0; i < order.conditions.length; i++) {
+        for (uint256 i = 0; i < order.conditions.length; i++) {
             if (checkCondition(order.conditions[i])) {
                 conditionsMet++;
             }
@@ -188,9 +190,9 @@ contract ConditionalOrder is Pausable, Ownable {
         }
     
         if (_condition.conditionType == ConditionType.PriceBased) {
-            int latestPrice = getLatestPrice();
+            int256 latestPrice = getLatestPrice();
             // Assuming value is the threshold price for the condition
-            return latestPrice >= int(_condition.value); // Needs careful consideration if using other than ETH/USD
+            return latestPrice >= int256(_condition.value); // Needs careful consideration if using other than ETH/USD
         }
 
         // EventBased can be tricky as it depends on what event you are looking for.
