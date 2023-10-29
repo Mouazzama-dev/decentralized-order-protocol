@@ -58,42 +58,43 @@ contract ConditionalOrderTest is Test {
         assertEq(uint(order.logic), uint(ConditionalOrder.Logic.AND));
         assertTrue(!order.executed);
     }
+function test_executeOrderTrade() public {
+    // First, create an order with a TimeBased condition for 2 seconds in the future.
+    ConditionalOrder.Condition[] memory initialConditions = new ConditionalOrder.Condition[](1);
 
-    function test_executeOrderTimeBased() public {
-        // First, create an order with a TimeBased condition for 2 seconds in the future.
-        ConditionalOrder.Condition[] memory initialConditions = new ConditionalOrder.Condition[](1);
+    ConditionalOrder.Condition memory condition = ConditionalOrder.Condition({
+        conditionType: ConditionalOrder.ConditionType.TimeBased,
+        value: block.timestamp + 2 seconds
+    });
 
-        ConditionalOrder.Condition memory condition = ConditionalOrder.Condition({
-            conditionType: ConditionalOrder.ConditionType.TimeBased,
-            value: block.timestamp + 2 seconds
-        });
+    initialConditions[0] = condition;
 
-        initialConditions[0] = condition;
+    uint256 orderId = conditionalOrder.createOrder(
+        ConditionalOrder.OrderType.Buy,
+        address(0),
+        100,
+        initialConditions,
+        ConditionalOrder.Logic.AND
+    );
 
-        uint256 orderId = conditionalOrder.createOrder(
-            ConditionalOrder.OrderType.Buy,
-            address(0),
-            100,
-            initialConditions,
-            ConditionalOrder.Logic.AND
-        );
+    assertEq(orderId, 1); // Ensure order creation was successful
 
-        assertEq(orderId, 1); // Ensure order creation was successful
+    // Using vm.wrap to manipulate the EVM time
+    vm.warp(block.timestamp + 2 seconds);
 
-        // Using vm.wrap to manipulate the EVM time
-        vm.warp(block.timestamp + 2 seconds);
+    conditionalOrder.executeOrder(orderId);
 
+    (
+        , , , , ,
+        , 
+        bool executed
+    ) = conditionalOrder.getOrder(orderId);
 
-        conditionalOrder.executeOrder(orderId);
-
-        (
-            , , , , ,
-            , 
-            bool executed
-        ) = conditionalOrder.getOrder(orderId);
-
-        // Asserting that the order has been executed
-        assertTrue(executed, "Order was not executed");
+    // Asserting that the order has been executed
+    assertTrue(executed, "Order was not executed");
+    
+    // In the real-world, you'd also check if the actual trade happened, e.g., by checking token balances or other states.
+    // For this example, the emitted event would be the evidence of "trade execution".
 }
 
 

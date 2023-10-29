@@ -47,6 +47,8 @@ contract ConditionalOrder is Pausable, Ownable {
 
     event OrderCreated(uint256 orderId, address indexed user);
     event OrderExecuted(uint256 orderId);
+    event TradeExecuted(uint256 orderId, OrderType orderType, address asset, uint256 amount);
+
 
     // constructor() {
     //     owner = msg.sender;
@@ -164,7 +166,16 @@ function getLatestPrice() internal view returns (int) {
 }
 
 
-    function performTrade(Order storage order) internal {
-        // ... the main trading logic shoudl be written here 
+   function performTrade(Order storage order) internal {
+    // Placeholder logic for trade execution.
+    // In a real-world scenario, this would integrate with an exchange or a DeFi protocol.
+    
+    if (order.orderType == OrderType.Buy) {
+        // Simulate buying the asset for the user
+        emit TradeExecuted(orderCount, OrderType.Buy, order.asset, order.amount);
+    } else if (order.orderType == OrderType.Sell) {
+        // Simulate selling the asset for the user
+        emit TradeExecuted(orderCount, OrderType.Sell, order.asset, order.amount);
     }
+   }
 }
