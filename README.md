@@ -1,66 +1,88 @@
-## Foundry
+# Contract Analysis: ConditionalOrder & MockChainlinkAggregator
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+## Overview
+The provided code includes two Solidity contracts:
+1. **ConditionalOrder**: Enables users to place orders based on certain conditions. If these conditions are met, the orders are executed.
+2. **MockChainlinkAggregator**: A mock version of Chainlink's AggregatorV3Interface. It's primarily used for testing to simulate Chainlink price feeds.
 
-Foundry consists of:
+## ConditionalOrder Contract
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+### Design Decisions:
+1. **Mixins**: This contract incorporates OpenZeppelin libraries (`Pausable`, `Ownable`, and `ReentrancyGuard`) which offer common functionalities like access control, pausability, and reentrancy attack protection.
+2. **Order Logic**: It supports users setting orders based on conditions. Hence, a user can indicate a combination of conditions; once these are met, the order gets executed.
+3. **Price Feed Integration**: The contract uses Chainlink's oracle service for fetching real-world data, especially price information. A mock version is also available for testing.
 
-## Documentation
+### Architecture:
 
-https://book.getfoundry.sh/
+#### Data Structures:
+- **OrderType**: Enumerates if the order is a Buy or Sell.
+- **ConditionType**: Enumerates the type of condition - Time-Based, Event-Based, or Price-Based.
+- **Logic**: Enum for checking multiple conditions using AND or OR logic.
+- **Condition**: A struct containing a condition type and its value.
+- **Order**: A struct that describes an order with all its associated data.
 
-## Usage
+#### State Variables:
+- **priceFeed**: An instance of Chainlink price feed.
+- **mockFeed**: An instance of the mock price feed.
+- **isUsingMock**: A boolean to ascertain if the contract uses real or mock data.
+- **orderCount**: Maintains the count of orders.
+- **orders**: Maps from order ID to the Order structure.
 
-### Build
+#### Constructor:
+- It initializes the contract in two modes: real Chainlink data or mock data for testing.
 
-```shell
-$ forge build
-```
+#### Key Functions:
+- **createOrder()**: Used by users to create orders.
+- **getOrder()**: Retrieves details of a specific order.
+- **switchToMock() & switchToReal()**: Enables the owner to toggle between real and mock price data.
+- **getLatestPrice()**: Fetches the latest price from either of the feeds.
+- **executeOrder()**: Executes a given order if conditions are met.
+- **checkCondition()**: A utility to verify if a given condition is met.
+- **performTrade()**: Simulates trade execution.
+- **cancelOrder()**: Enables users to retract their orders.
 
-### Test
+### Security:
+- **Access Control**: The `onlyOwner` modifier ensures only the contract owner can toggle between real and mock data.
+- **Reentrancy Protection**: The `nonReentrant` modifier safeguards against reentrancy attacks, especially crucial during order execution.
+- **Pausing Mechanism**: The `whenNotPaused` modifier ensures functions can't be invoked when the contract is paused, offering an emergency stop mechanism.
 
-```shell
-$ forge test
-```
+## MockChainlinkAggregator Contract
 
-### Format
+### Design Decisions:
+1. **Mocking Chainlink**: Given the widespread use of Chainlink's oracles, testing in a local or simulation environment necessitates mock versions. This contract imitates Chainlink's behavior.
 
-```shell
-$ forge fmt
-```
+### Architecture:
 
-### Gas Snapshots
+#### Data Structures:
+- **price**: A mock price value.
+- Other attributes to mimic the Chainlink aggregator, such as decimals, version, and description.
 
-```shell
-$ forge snapshot
-```
+#### Key Functions:
+- **decimals(), description(), version()**: Overrides for Chainlink's interface.
+- **latestRoundData(), getRoundData()**: Simulates Chainlink's latestRoundData and getRoundData functions.
+- **setPrice()**: Enables updating the mock price.
 
-### Anvil
+### Usefulness:
+- Critical for testing, it emulates Chainlink's behavior, enabling a controlled test environment without incurring real-world oracle expenses.
 
-```shell
-$ anvil
-```
+## Final Thoughts:
+The architecture is comprehensible and modular, utilizing both custom logic and trusted libraries to guarantee functionality and security. Potential enhancements could involve real-time integration with a DEX or DeFi platform to truly execute trades and refine the event-based conditions.
 
-### Deploy
+## How to Setup
 
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
+To get started with the contracts and run tests, follow the instructions below:
 
-### Cast
+### Compiling the Contracts
+To compile all the contracts, use the command:
+`forge build`
 
-```shell
-$ cast <subcommand>
-```
+### Testing the Contracts
+To test all the contracts, use the command:
+`forge Test`
 
-### Help
+### Test Specific Contract
+To test specific contract, use the command:
+`forge test -vvvv --match-contract <ExampleTestName>`
 
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+Example : `forge test -vvvv --match-contract TimeBasedOrderTest`
+
