@@ -2,16 +2,20 @@
 
 pragma solidity ^0.8.12;
 
-// Import required OpenZeppelin and Chainlink contracts
+// Import required OpenZeppelin,Chainlink and MockChainlink contracts
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
-
+import "./MockChainlinkAggregator.sol";
 // A contract to execute conditional orders based on various conditions
 contract ConditionalOrder is Pausable, Ownable {
 
     // Interface for Chainlink price feeds
     AggregatorV3Interface internal priceFeed;
+
+    // Variable for mock price feed
+    MockChainlinkAggregator internal mockFeed;
+    bool public isUsingMock = false;
 
      // Define order types: Buy or Sell
     enum OrderType {Buy,Sell}
@@ -47,9 +51,13 @@ contract ConditionalOrder is Pausable, Ownable {
     event TradeExecuted(uint256 orderId, OrderType orderType, address asset, uint256 amount);
     
     // Constructor to initialize the price feed
-    constructor() Ownable(msg.sender) {
-        priceFeed = AggregatorV3Interface(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
-
+    constructor(bool useMock) Ownable(msg.sender) {
+        if (useMock) {
+            mockFeed = new MockChainlinkAggregator(2000e8); // initializes the mock feed with a price of 2000 with 8 decimals
+            isUsingMock = true;
+        } else {
+            priceFeed = AggregatorV3Interface(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
+        }
     }
 
     /**
@@ -91,7 +99,6 @@ contract ConditionalOrder is Pausable, Ownable {
     * @dev Fetches details of a specific order
     * @param _orderId ID of the order to fetch
     *
-    * @return Details of the specified order
     */
 
     function getOrder(uint256 _orderId) external view returns (
@@ -115,14 +122,26 @@ contract ConditionalOrder is Pausable, Ownable {
             );
     }
 
-    /**
-    * @dev Fetches the latest price from Chainlink price feed
-    * 
-    * @return Latest price
-    */
+    function switchToMock() external onlyOwner {
+        require(!isUsingMock, "Already using Mock");
+        mockFeed = new MockChainlinkAggregator(2000e8);
+        isUsingMock = true;
+    }
+
+    function switchToReal() external onlyOwner {
+        require(isUsingMock, "Already using Real Feed");
+        priceFeed = AggregatorV3Interface(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
+        isUsingMock = false;
+    }
+
     function getLatestPrice() internal view returns (int) {
-        (,int price,,,) = priceFeed.latestRoundData();
-        return price;
+        if (isUsingMock) {
+            (, int price, , , ) = mockFeed.latestRoundData();
+            return price;
+        } else {
+            (, int price, , , ) = priceFeed.latestRoundData();
+            return price;
+        }
     }
 
 
@@ -153,6 +172,7 @@ contract ConditionalOrder is Pausable, Ownable {
 
         }
     }
+
 
     /**
     * @dev Checks if a specific condition of an order is met
