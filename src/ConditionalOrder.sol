@@ -49,6 +49,7 @@ contract ConditionalOrder is Pausable, Ownable {
     event OrderCreated(uint256 orderId, address indexed user);
     event OrderExecuted(uint256 orderId);
     event TradeExecuted(uint256 orderId, OrderType orderType, address asset, uint256 amount);
+    event OrderCanceled(uint256 orderId);
     
     // Constructor to initialize the price feed
     constructor(bool useMock) Ownable(msg.sender) {
@@ -219,4 +220,14 @@ contract ConditionalOrder is Pausable, Ownable {
             emit TradeExecuted(orderCount, OrderType.Sell, order.asset, order.amount);
         }
     }
+
+    function cancelOrder(uint256 _orderId) public whenNotPaused {
+        Order storage order = orders[_orderId];
+        require(order.user == msg.sender, "Only order creator can cancel");
+        require(!order.executed, "Order already executed");
+
+        order.executed = true; // Mark the order as executed to prevent further operations
+        emit OrderCanceled(_orderId);
+    }
 }
+
